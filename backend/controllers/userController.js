@@ -46,3 +46,17 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
   // save token in cookie and send response
   sendToken(user, 200, res);
 });
+
+// Logout user => /api/v1/logout
+exports.logout = catchAsyncErrors(async (req, res, next) => {
+  // clear cookie
+  res.cookie("token", null, {
+    // expire the cookie in 1 sec
+    expires: new Date(Date.now()),
+    httpOnly: true,
+  });
+  res.status(200).json({
+    success: true,
+    message: "Logged out",
+  });
+});
