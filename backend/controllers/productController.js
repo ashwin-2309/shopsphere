@@ -2,6 +2,7 @@ const ProductModel = require("../models/productModel");
 // ErrorHandler is a class that we created in utils/errorHandler.js
 const ErrorHandler = require("../utils/errorhandler");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors");
+const ApiFeatures = require("../utils/apifeatures");
 
 // Create Product -- Admin
 exports.createProduct = catchAsyncErrors(async (req, res, next) => {
@@ -15,7 +16,15 @@ exports.createProduct = catchAsyncErrors(async (req, res, next) => {
 // Get All Products
 
 exports.getAllProducts = catchAsyncErrors(async (req, res) => {
-  const products = await ProductModel.find();
+  const resultsPerPage = 8;
+  const productCount = await ProductModel.countDocuments();
+
+  const apiFeature = new ApiFeatures(ProductModel.find(), req.query)
+    .search()
+    .filter()
+    .paginate(resultsPerPage);
+
+  const products = await apiFeature.query;
   res.status(200).json({
     success: true,
     count: products.length,
