@@ -139,3 +139,115 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
 
   sendToken(user, 200, res);
 });
+
+// Get User Detail -- /api/v1/me -- private
+exports.getUserDetails = catchAsyncErrors(async (req, res, next) => {
+  // we have already added the user in req.user in auth middleware
+  const user = await UserModel.findById(req.user.id);
+  res.status(200).json({
+    success: true,
+    user,
+  });
+});
+
+// Update User Password -- /api/v1/password/update -- private
+exports.updatePassword = catchAsyncErrors(async (req, res, next) => {
+  const user = await UserModel.findById(req.user.id).select("+password");
+  // check previous user password
+  const isMatched = await user.comparePassword(req.body.oldPassword);
+  if (!isMatched) {
+    return next(new ErrorHandler("Old password is incorrect", 400));
+  }
+
+  if (req.body.newPassword !== req.body.confirmPassword) {
+    return next(new ErrorHandler("Password does not match", 400));
+  }
+
+  user.password = req.body.newPassword;
+  await user.save();
+
+  sendToken(user, 200, res);
+});
+
+// Update User Profile -- /api/v1/me/update -- private
+exports.updateProfile = catchAsyncErrors(async (req, res, next) => {
+  const newUserData = {
+    name: req.body.name,
+    email: req.body.email,
+  };
+
+  // Update avatar
+  // ? add cloudinary later
+
+  const user = await UserModel.findByIdAndUpdate(req.user.id, newUserData, {
+    new: true,
+    runValidators: true,
+    useFindAndModify: false,
+  });
+
+  sendToken(user, 200, res);
+});
+
+// admin routes
+
+// Get all users -- /api/v1/admin/users -- private
+exports.getAllUsers = catchAsyncErrors(async (req, res, next) => {
+  const users = await UserModel.find();
+  res.status(200).json({
+    success: true,
+    users,
+  });
+});
+
+// Get single user details by admin -- /api/v1/admin/user/:id -- private
+exports.getSingleUser = catchAsyncErrors(async (req, res, next) => {
+  const user = await UserModel.findById(req.params.id);
+
+  if (!user) {
+    return next(new ErrorHandler(`User not found with id: ${req.params.id}`));
+  }
+
+  res.status(200).json({
+    success: true,
+    user,
+  });
+});
+
+// Update user role by admin -- /api/v1/admin/user/:id -- private -- admin
+// ! this route test is not working showing duplicate email error but why
+// @ it was not working because i was using req.user.id instead of req.params.id😂😂
+exports.updateUserRole = catchAsyncErrors(async (req, res, next) => {
+  const newUserData = {
+    name: req.body.name,
+    email: req.body.email,
+    role: req.body.role,
+  };
+  console.log(newUserData);
+
+  const user = await UserModel.findByIdAndUpdate(req.params.id, newUserData, {
+    new: true,
+    runValidators: true,
+    useFindAndModify: false,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "User role updated successfully 😉😉",
+  });
+});
+
+// Delete user by admin -- /api/v1/admin/user/:id -- private -- admin
+exports.deleteUser = catchAsyncErrors(async (req, res, next) => {
+  const user = await UserModel.findById(req.params.id);
+  // We will remove cloidinary image later
+
+  if (!user) {
+    return next(new ErrorHandler(`User not found with id: ${req.params.id}`));
+  }
+  // .remove is deprecated 😁😁
+  await user.deleteOne();
+  res.status(200).json({
+    success: true,
+    message: "User deleted successfully😉😉",
+  });
+});
