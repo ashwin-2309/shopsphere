@@ -4,6 +4,9 @@ const UserModel = require("../models/userModel");
 
 const sendToken = require("../utils/jwtToken");
 
+const sendEmail = require("../utils/sendEmail.js");
+const crypto = require("crypto");
+
 // Register a user => /api/v1/register
 exports.registerUser = catchAsyncErrors(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -59,4 +62,80 @@ exports.logout = catchAsyncErrors(async (req, res, next) => {
     success: true,
     message: "Logged out",
   });
+});
+
+// Forgot password => /api/v1/password/forgot
+exports.forgotPassword = catchAsyncErrors(async (req, res, next) => {
+  // find user
+  const user = await UserModel.findOne({ email: req.body.email });
+  if (!user) {
+    return next(new ErrorHandler("User not found with this email", 404));
+  }
+  // Get ResetPassword token
+  const resetToken = user.getResetPasswordToken();
+  // save user
+  await user.save({ validateBeforeSave: false });
+  // create reset password url
+
+  const resetPasswordUrl = `{req.protocol}://${req.get(
+    "host"
+  )}/api/v1/password/reset/${resetToken}`;
+
+  // prepare message
+  const message = `Your password reset token is as follow:\n\n${resetPasswordUrl}\n\nIf you have not requested this email, then ignore it.`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "ShopSphere Password Recovery",
+      message,
+    });
+    res.status(200).json({
+      success: true,
+      message: `Email sent to: ${user.email}`,
+    });
+  } catch (error) {
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+    // as we had saved the user earlier so we need to remove the token and expire time
+    return next(new ErrorHandler(error.message, 500));
+  }
+});
+
+//
+exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
+  // creating token hash
+  const resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  // find the user with the token
+  const user = await UserModel.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(
+      new ErrorHandler("Password reset token is invalid or has expired", 400)
+    );
+  }
+
+  // set new password
+  if (req.body.password !== req.body.confirmPassword) {
+    return next(new ErrorHandler("Password does not match", 400));
+  }
+
+  // setup new password
+  user.password = req.body.password;
+
+  // remove resetPasswordToken and resetPasswordExpire
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
+  sendToken(user, 200, res);
 });
