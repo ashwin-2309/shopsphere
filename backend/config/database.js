@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
-// const mongoUri = process.env;
+const mongoUri = process.env.MONGO_URI;
 // console.log(mongoUri);
 const connectDatabase = () => {
   mongoose
