@@ -1,9 +1,10 @@
 {
-  "name": "swiftkart",
+  "name": "shopsphere",
   "version": "1.0.0",
   "description": "",
   "main": "backend\\server.js",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node backend\\server.js",
     "dev": "nodemon backend\\server.js"
